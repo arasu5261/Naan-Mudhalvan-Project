@@ -1,6 +1,7 @@
 import os
 import json
-
+import streamlit as st
+st.tittle("Customer Churn Prediction")
 kaggle_api_token = {
     "username": "kashnitsky",  
     "key": "your_actual_key_here"  
