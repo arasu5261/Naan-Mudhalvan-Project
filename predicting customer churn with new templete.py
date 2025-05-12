@@ -153,7 +153,7 @@ if not os.path.exists(model_path):
             'Recall': recall_score(y_test, y_pred),
             'F1 Score': f1_score(y_test, y_pred),
             'ROC AUC': roc_auc_score(y_test, y_pred)
-        
+        }
         with open(metrics_path, 'w') as f:
             json.dump(metrics, f)
         st.write("Model Evaluation Results (computed during training):")
