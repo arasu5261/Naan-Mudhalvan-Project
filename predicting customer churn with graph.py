@@ -8,7 +8,6 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 import joblib
 from xgboost import XGBClassifier
 
-# Custom CSS for styling
 st.markdown("""
 <style>
     .main-header {
@@ -69,21 +68,19 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Title
+
 st.markdown('<div class="main-header">Customer Churn Prediction</div>', unsafe_allow_html=True)
 
-# Sidebar for inputs
 with st.sidebar:
     st.header("Customer Details")
 
-    # Personal Information Section
     st.markdown('<div class="section-header">Personal Information</div>', unsafe_allow_html=True)
     gender = st.selectbox("Gender", ["Male", "Female"])
     senior_citizen = st.selectbox("Senior Citizen", [0, 1])
     partner = st.selectbox("Partner", ["Yes", "No"])
     dependents = st.selectbox("Dependents", ["Yes", "No"])
 
-    # Service Information Section
+
     st.markdown('<div class="section-header">Services</div>', unsafe_allow_html=True)
     tenure = st.slider("Tenure (months)", 0, 72, 12)
     phone_service = st.selectbox("Phone Service", ["Yes", "No"])
@@ -96,7 +93,7 @@ with st.sidebar:
     streaming_tv = st.selectbox("Streaming TV", ["No", "Yes", "No internet service"])
     streaming_movies = st.selectbox("Streaming Movies", ["No", "Yes", "No internet service"])
 
-    # Billing Information Section
+
     st.markdown('<div class="section-header">Billing Details</div>', unsafe_allow_html=True)
     contract = st.selectbox("Contract Type", ["Month-to-month", "One year", "Two year"])
     paperless_billing = st.selectbox("Paperless Billing", ["Yes", "No"])
@@ -104,10 +101,8 @@ with st.sidebar:
     monthly_charges = st.number_input("Monthly Charges", min_value=0.0, value=50.0)
     total_charges = st.number_input("Total Charges", min_value=0.0, value=600.0)
 
-# Main content
 st.write("### Model Training and Evaluation")
 
-# Download and preprocess data
 kaggle_api_token = {
     "username": st.secrets["kaggle"]["username"],
     "key": st.secrets["kaggle"]["key"]
@@ -145,13 +140,12 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_
 model_path = "churn_model_xgb.pkl"
 metrics_path = "model_metrics.json"
 
-# Train or load the model
 if not os.path.exists(model_path):
     with st.spinner("Training model..."):
         model = XGBClassifier(use_label_encoder=False, eval_metric='logloss')
         model.fit(X_train, y_train)
         joblib.dump(model, model_path)
-        # Evaluate model
+        
         y_pred = model.predict(X_test)
         metrics = {
             'Accuracy': accuracy_score(y_test, y_pred),
@@ -159,34 +153,32 @@ if not os.path.exists(model_path):
             'Recall': recall_score(y_test, y_pred),
             'F1 Score': f1_score(y_test, y_pred),
             'ROC AUC': roc_auc_score(y_test, y_pred)
-        }
-        # Save metrics to a file
+        
         with open(metrics_path, 'w') as f:
             json.dump(metrics, f)
         st.write("Model Evaluation Results (computed during training):")
         st.write(metrics)
 
-# Load the model
+
 model = joblib.load(model_path)
 
-# Load and display evaluation metrics
 if os.path.exists(metrics_path):
     with open(metrics_path, 'r') as f:
         metrics = json.load(f)
     st.write("#### Model Evaluation Metrics (XGBoost)")
-    # Create a table for metrics
+    
     metrics_df = pd.DataFrame.from_dict(metrics, orient='index', columns=['Value'])
     metrics_df.reset_index(inplace=True)
     metrics_df.columns = ['Metric', 'Value']
-    # Format values to 4 decimal places
+    
     metrics_df['Value'] = metrics_df['Value'].apply(lambda x: f"{x:.4f}")
-    # Convert DataFrame to HTML table with custom styling
+
     metrics_html = metrics_df.to_html(index=False, classes='metrics-table')
     st.markdown(metrics_html, unsafe_allow_html=True)
 else:
     st.write("Model evaluation metrics are not available. Please train the model first.")
 
-# Prediction Section
+
 st.write("### Predict Customer Churn")
 if st.button("Predict Churn"):
     input_data = {
@@ -222,7 +214,7 @@ if st.button("Predict Churn"):
     prediction = model.predict(input_df)[0]
     probability = model.predict_proba(input_df)[0][1]
 
-    # Display prediction in a styled box
+
     st.markdown(f"""
     <div class="prediction-box">
         <strong>Churn Prediction:</strong> {'Yes' if prediction == 1 else 'No'}<br>
