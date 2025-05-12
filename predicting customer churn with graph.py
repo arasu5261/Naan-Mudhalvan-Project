@@ -4,16 +4,90 @@ import streamlit as st
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import train_test_split
-from xgboost import XGBClassifier
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score, roc_curve, confusion_matrix
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
 import joblib
-import matplotlib.pyplot as plt
-import seaborn as sns
-import numpy as np
+from xgboost import XGBClassifier
 
-st.title("Customer Churn Prediction")
+# Custom CSS for styling
+st.markdown("""
+<style>
+    .main-header {
+        font-size: 36px;
+        font-weight: bold;
+        color: #2c3e50;
+        text-align: center;
+        margin-bottom: 20px;
+    }
+    .section-header {
+        font-size: 24px;
+        font-weight: bold;
+        color: #34495e;
+        margin-top: 20px;
+        margin-bottom: 10px;
+    }
+    .stButton>button {
+        background-color: #3498db;
+        color: white;
+        border-radius: 8px;
+        padding: 10px 20px;
+        font-size: 16px;
+        border: none;
+    }
+    .stButton>button:hover {
+        background-color: #2980b9;
+    }
+    .prediction-box {
+        background-color: #ecf0f1;
+        padding: 20px;
+        border-radius: 10px;
+        text-align: center;
+        font-size: 18px;
+        margin-top: 20px;
+    }
+    .sidebar .sidebar-content {
+        background-color: #f8f9fa;
+        padding: 20px;
+    }
+</style>
+""", unsafe_allow_html=True)
 
-# Kaggle API setup
+# Title
+st.markdown('<div class="main-header">Customer Churn Prediction</div>', unsafe_allow_html=True)
+
+# Sidebar for inputs
+with st.sidebar:
+    st.header("Customer Details")
+
+    # Personal Information Section
+    st.markdown('<div class="section-header">Personal Information</div>', unsafe_allow_html=True)
+    gender = st.selectbox("Gender", ["Male", "Female"])
+    senior_citizen = st.selectbox("Senior Citizen", [0, 1])
+    partner = st.selectbox("Partner", ["Yes", "No"])
+    dependents = st.selectbox("Dependents", ["Yes", "No"])
+
+    # Service Information Section
+    st.markdown('<div class="section-header">Services</div>', unsafe_allow_html=True)
+    tenure = st.slider("Tenure (months)", 0, 72, 12)
+    phone_service = st.selectbox("Phone Service", ["Yes", "No"])
+    multiple_lines = st.selectbox("Multiple Lines", ["No", "Yes", "No phone service"])
+    internet_service = st.selectbox("Internet Service", ["DSL", "Fiber optic", "No"])
+    online_security = st.selectbox("Online Security", ["No", "Yes", "No internet service"])
+    online_backup = st.selectbox("Online Backup", ["No", "Yes", "No internet service"])
+    device_protection = st.selectbox("Device Protection", ["No", "Yes", "No internet service"])
+    tech_support = st.selectbox("Tech Support", ["No", "Yes", "No internet service"])
+    streaming_tv = st.selectbox("Streaming TV", ["No", "Yes", "No internet service"])
+    streaming_movies = st.selectbox("Streaming Movies", ["No", "Yes", "No internet service"])
+
+    # Billing Information Section
+    st.markdown('<div class="section-header">Billing Details</div>', unsafe_allow_html=True)
+    contract = st.selectbox("Contract Type", ["Month-to-month", "One year", "Two year"])
+    paperless_billing = st.selectbox("Paperless Billing", ["Yes", "No"])
+    payment_method = st.selectbox("Payment Method", ["Electronic check", "Mailed check", "Bank transfer (automatic)", "Credit card (automatic)"])
+    monthly_charges = st.number_input("Monthly Charges", min_value=0.0, value=50.0)
+    total_charges = st.number_input("Total Charges", min_value=0.0, value=600.0)
+
+# Main content
+st.write("### Model Training and Evaluation")
 kaggle_api_token = {
     "username": st.secrets["kaggle"]["username"],
     "key": st.secrets["kaggle"]["key"]
@@ -24,11 +98,9 @@ with open(os.path.expanduser("~/.kaggle/kaggle.json"), "w") as f:
     json.dump(kaggle_api_token, f)
 os.chmod(os.path.expanduser("~/.kaggle/kaggle.json"), 0o600)
 
-# Download dataset
 with st.spinner("Downloading dataset..."):
     os.system("kaggle datasets download -d blastchar/telco-customer-churn --unzip -p ./data")
 
-# Load and preprocess data
 df = pd.read_csv('./data/WA_Fn-UseC_-Telco-Customer-Churn.csv')
 
 df['TotalCharges'] = pd.to_numeric(df['TotalCharges'], errors='coerce')
@@ -46,12 +118,10 @@ df = pd.get_dummies(df, drop_first=True)
 scaler = MinMaxScaler()
 df[['tenure', 'MonthlyCharges', 'TotalCharges']] = scaler.fit_transform(df[['tenure', 'MonthlyCharges', 'TotalCharges']])
 
-# Train-test split
 X = df.drop('Churn', axis=1)
 y = df['Churn']
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42, stratify=y)
 
-# Train model (if not already saved)
 model_path = "churn_model_xgb.pkl"
 if not os.path.exists(model_path):
     with st.spinner("Training model..."):
@@ -60,8 +130,7 @@ if not os.path.exists(model_path):
         joblib.dump(model, model_path)
         # Evaluate model
         y_pred = model.predict(X_test)
-        y_pred_proba = model.predict_proba(X_test)[:, 1]  # Probabilities for the positive class (churn=1)
-        st.write("Model Evaluation:")
+        st.write("Model Evaluation Results:")
         st.write({
             'Accuracy': accuracy_score(y_test, y_pred),
             'Precision': precision_score(y_test, y_pred),
@@ -70,105 +139,48 @@ if not os.path.exists(model_path):
             'ROC AUC': roc_auc_score(y_test, y_pred)
         })
 
-# Load model for predictions and further evaluation
 model = joblib.load(model_path)
-y_pred = model.predict(X_test)  # Recompute predictions for consistency
-y_pred_proba = model.predict_proba(X_test)[:, 1]  # Probabilities for ROC curve
 
-# Plot ROC Curve
-st.subheader("ROC Curve")
-fpr, tpr, thresholds = roc_curve(y_test, y_pred_proba)
-auc_score = roc_auc_score(y_test, y_pred_proba)
+# Prediction Section
+st.write("### Predict Customer Churn")
+if st.button("Predict Churn"):
+    input_data = {
+        'gender': gender,
+        'SeniorCitizen': senior_citizen,
+        'Partner': partner,
+        'Dependents': dependents,
+        'tenure': tenure,
+        'PhoneService': phone_service,
+        'MultipleLines': multiple_lines,
+        'InternetService': internet_service,
+        'OnlineSecurity': online_security,
+        'OnlineBackup': online_backup,
+        'DeviceProtection': device_protection,
+        'TechSupport': tech_support,
+        'StreamingTV': streaming_tv,
+        'StreamingMovies': streaming_movies,
+        'Contract': contract,
+        'PaperlessBilling': paperless_billing,
+        'PaymentMethod': payment_method,
+        'MonthlyCharges': monthly_charges,
+        'TotalCharges': total_charges
+    }
 
-plt.figure(figsize=(8, 6))
-plt.plot(fpr, tpr, label=f'ROC Curve (AUC = {auc_score:.2f})', color='blue')
-plt.plot([0, 1], [0, 1], 'k--', label='Random Guess')
-plt.xlabel('False Positive Rate (FPR)')
-plt.ylabel('True Positive Rate (TPR)')
-plt.title('Receiver Operating Characteristic (ROC) Curve')
-plt.legend(loc='lower right')
-plt.grid(True)
-st.pyplot(plt)
+    input_df = pd.DataFrame([input_data])
+    for col in binary_cols:
+        input_df[col] = input_df[col].map({'Yes': 1, 'No': 0})
 
-# Plot Confusion Matrix
-st.subheader("Confusion Matrix")
-cm = confusion_matrix(y_test, y_pred)
-plt.figure(figsize=(6, 4))
-sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', cbar=False,
-            xticklabels=['No Churn (0)', 'Churn (1)'],
-            yticklabels=['No Churn (0)', 'Churn (1)'])
-plt.xlabel('Predicted')
-plt.ylabel('Actual')
-plt.title('Confusion Matrix')
-st.pyplot(plt)
+    input_df = pd.get_dummies(input_df, drop_first=True)
+    input_df = input_df.reindex(columns=X.columns, fill_value=0)
+    input_df[['tenure', 'MonthlyCharges', 'TotalCharges']] = scaler.transform(input_df[['tenure', 'MonthlyCharges', 'TotalCharges']])
 
-# Feature Importance Plot
-st.subheader("Feature Importance")
-importances = model.feature_importances_
-features = X.columns
-plt.figure(figsize=(10, 6))
-sns.barplot(x=importances, y=features)
-plt.title("Feature Importances - XGBoost")
-plt.tight_layout()
-st.pyplot(plt)
-
-# Prediction Interface
-st.subheader("Predict Customer Churn")
-gender = st.selectbox("Gender", ["Male", "Female"])
-senior_citizen = st.selectbox("Senior Citizen", [0, 1])
-partner = st.selectbox("Partner", ["Yes", "No"])
-dependents = st.selectbox("Dependents", ["Yes", "No"])
-tenure = st.slider("Tenure (months)", 0, 72, 12)
-phone_service = st.selectbox("Phone Service", ["Yes", "No"])
-multiple_lines = st.selectbox("Multiple Lines", ["No", "Yes", "No phone service"])
-internet_service = st.selectbox("Internet Service", ["DSL", "Fiber optic", "No"])
-online_security = st.selectbox("Online Security", ["No", "Yes", "No internet service"])
-online_backup = st.selectbox("Online Backup", ["No", "Yes", "No internet service"])
-device_protection = st.selectbox("Device Protection", ["No", "Yes", "No internet service"])
-tech_support = st.selectbox("Tech Support", ["No", "Yes", "No internet service"])
-streaming_tv = st.selectbox("Streaming TV", ["No", "Yes", "No internet service"])
-streaming_movies = st.selectbox("Streaming Movies", ["No", "Yes", "No internet service"])
-contract = st.selectbox("Contract Type", ["Month-to-month", "One year", "Two year"])
-paperless_billing = st.selectbox("Paperless Billing", ["Yes", "No"])
-payment_method = st.selectbox("Payment Method", ["Electronic check", "Mailed check", "Bank transfer (automatic)", "Credit card (automatic)"])
-monthly_charges = st.number_input("Monthly Charges", min_value=0.0, value=50.0)
-total_charges = st.number_input("Total Charges", min_value=0.0, value=600.0)
-
-input_data = {
-    'gender': gender,
-    'SeniorCitizen': senior_citizen,
-    'Partner': partner,
-    'Dependents': dependents,
-    'tenure': tenure,
-    'PhoneService': phone_service,
-    'MultipleLines': multiple_lines,
-    'InternetService': internet_service,
-    'OnlineSecurity': online_security,
-    'OnlineBackup': online_backup,
-    'DeviceProtection': device_protection,
-    'TechSupport': tech_support,
-    'StreamingTV': streaming_tv,
-    'StreamingMovies': streaming_movies,
-    'Contract': contract,
-    'PaperlessBilling': paperless_billing,
-    'PaymentMethod': payment_method,
-    'MonthlyCharges': monthly_charges,
-    'TotalCharges': total_charges
-}
-
-input_df = pd.DataFrame([input_data])
-binary_cols = ['Partner', 'Dependents', 'PhoneService', 'PaperlessBilling']
-for col in binary_cols:
-    input_df[col] = input_df[col].map({'Yes': 1, 'No': 0})
-
-input_df = pd.get_dummies(input_df, drop_first=True)
-
-input_df = input_df.reindex(columns=X.columns, fill_value=0)
-
-input_df[['tenure', 'MonthlyCharges', 'TotalCharges']] = scaler.transform(input_df[['tenure', 'MonthlyCharges', 'TotalCharges']])
-
-if st.button("Predict"):
     prediction = model.predict(input_df)[0]
     probability = model.predict_proba(input_df)[0][1]
-    st.write(f"Churn Prediction: {'Yes' if prediction == 1 else 'No'}")
-    st.write(f"Probability of Churn: {probability:.2%}")
+
+    # Display prediction in a styled box
+    st.markdown(f"""
+    <div class="prediction-box">
+        <strong>Churn Prediction:</strong> {'Yes' if prediction == 1 else 'No'}<br>
+        <strong>Probability of Churn:</strong> {probability:.2%}
+    </div>
+    """, unsafe_allow_html=True)
