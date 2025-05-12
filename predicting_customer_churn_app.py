@@ -10,10 +10,9 @@ import joblib
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-# Title of the app
 st.title("Customer Churn Prediction")
 
-# Step 1: Set up Kaggle API credentials using Streamlit secrets
+
 kaggle_api_token = {
     "username": st.secrets["kaggle"]["username"],
     "key": st.secrets["kaggle"]["key"]
@@ -24,14 +23,11 @@ with open(os.path.expanduser("~/.kaggle/kaggle.json"), "w") as f:
     json.dump(kaggle_api_token, f)
 os.chmod(os.path.expanduser("~/.kaggle/kaggle.json"), 0o600)
 
-# Step 2: Download Dataset
 with st.spinner("Downloading dataset..."):
     os.system("kaggle datasets download -d blastchar/telco-customer-churn --unzip -p ./data")
 
-# Step 3: Load and Preprocess Data
 df = pd.read_csv('./data/WA_Fn-UseC_-Telco-Customer-Churn.csv')
 
-# Data preprocessing
 df['TotalCharges'] = pd.to_numeric(df['TotalCharges'], errors='coerce')
 df.dropna(subset=['TotalCharges'], inplace=True)
 df.reset_index(drop=True, inplace=True)
@@ -44,11 +40,9 @@ for col in binary_cols:
 
 df = pd.get_dummies(df, drop_first=True)
 
-# Scale numerical features
 scaler = MinMaxScaler()
 df[['tenure', 'MonthlyCharges', 'TotalCharges']] = scaler.fit_transform(df[['tenure', 'MonthlyCharges', 'TotalCharges']])
 
-# Step 4: Train Model (if not already saved)
 X = df.drop('Churn', axis=1)
 y = df['Churn']
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42, stratify=y)
@@ -70,10 +64,8 @@ if not os.path.exists(model_path):
             'ROC AUC': roc_auc_score(y_test, y_pred)
         })
 
-# Step 5: Load Model for Predictions
 model = joblib.load(model_path)
 
-# Step 6: Feature Importance Plot
 st.subheader("Feature Importance")
 importances = model.feature_importances_
 features = X.columns
@@ -83,7 +75,6 @@ plt.title("Feature Importances - XGBoost")
 plt.tight_layout()
 st.pyplot(plt)
 
-# Step 7: User Input for Prediction
 st.subheader("Predict Customer Churn")
 gender = st.selectbox("Gender", ["Male", "Female"])
 senior_citizen = st.selectbox("Senior Citizen", [0, 1])
@@ -105,7 +96,6 @@ payment_method = st.selectbox("Payment Method", ["Electronic check", "Mailed che
 monthly_charges = st.number_input("Monthly Charges", min_value=0.0, value=50.0)
 total_charges = st.number_input("Total Charges", min_value=0.0, value=600.0)
 
-# Step 8: Prepare Input for Prediction
 input_data = {
     'gender': gender,
     'SeniorCitizen': senior_citizen,
@@ -128,22 +118,17 @@ input_data = {
     'TotalCharges': total_charges
 }
 
-# Map categorical inputs to numerical values
 input_df = pd.DataFrame([input_data])
 binary_cols = ['Partner', 'Dependents', 'PhoneService', 'PaperlessBilling']
 for col in binary_cols:
     input_df[col] = input_df[col].map({'Yes': 1, 'No': 0})
 
-# Encode categorical variables
 input_df = pd.get_dummies(input_df, drop_first=True)
 
-# Align columns with training data
 input_df = input_df.reindex(columns=X.columns, fill_value=0)
 
-# Scale numerical features
 input_df[['tenure', 'MonthlyCharges', 'TotalCharges']] = scaler.transform(input_df[['tenure', 'MonthlyCharges', 'TotalCharges']])
 
-# Step 9: Make Prediction
 if st.button("Predict"):
     prediction = model.predict(input_df)[0]
     probability = model.predict_proba(input_df)[0][1]
