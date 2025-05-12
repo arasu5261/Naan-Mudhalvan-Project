@@ -37,16 +37,34 @@ st.markdown("""
         background-color: #2980b9;
     }
     .prediction-box {
-        background-color: #ecf0f1;
+        background-color: #d3d3d3;  /* Slightly darker gray for better theme integration */
         padding: 20px;
         border-radius: 10px;
         text-align: center;
         font-size: 18px;
         margin-top: 20px;
+        color: #2c3e50;  /* Dark text color for contrast */
+    }
+    .prediction-box strong {
+        color: #2c3e50;  /* Ensure strong tags (bold text) are also dark */
     }
     .sidebar .sidebar-content {
         background-color: #f8f9fa;
         padding: 20px;
+    }
+    .metrics-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10px;
+    }
+    .metrics-table th, .metrics-table td {
+        border: 1px solid #ddd;
+        padding: 8px;
+        text-align: center;
+    }
+    .metrics-table th {
+        background-color: #f2f2f2;
+        font-weight: bold;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -88,6 +106,8 @@ with st.sidebar:
 
 # Main content
 st.write("### Model Training and Evaluation")
+
+# Download and preprocess data
 kaggle_api_token = {
     "username": st.secrets["kaggle"]["username"],
     "key": st.secrets["kaggle"]["key"]
@@ -123,6 +143,9 @@ y = df['Churn']
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42, stratify=y)
 
 model_path = "churn_model_xgb.pkl"
+metrics_path = "model_metrics.json"
+
+# Train or load the model
 if not os.path.exists(model_path):
     with st.spinner("Training model..."):
         model = XGBClassifier(use_label_encoder=False, eval_metric='logloss')
@@ -130,16 +153,38 @@ if not os.path.exists(model_path):
         joblib.dump(model, model_path)
         # Evaluate model
         y_pred = model.predict(X_test)
-        st.write("Model Evaluation Results:")
-        st.write({
+        metrics = {
             'Accuracy': accuracy_score(y_test, y_pred),
             'Precision': precision_score(y_test, y_pred),
             'Recall': recall_score(y_test, y_pred),
             'F1 Score': f1_score(y_test, y_pred),
             'ROC AUC': roc_auc_score(y_test, y_pred)
-        })
+        }
+        # Save metrics to a file
+        with open(metrics_path, 'w') as f:
+            json.dump(metrics, f)
+        st.write("Model Evaluation Results (computed during training):")
+        st.write(metrics)
 
+# Load the model
 model = joblib.load(model_path)
+
+# Load and display evaluation metrics
+if os.path.exists(metrics_path):
+    with open(metrics_path, 'r') as f:
+        metrics = json.load(f)
+    st.write("#### Model Evaluation Metrics (XGBoost)")
+    # Create a table for metrics
+    metrics_df = pd.DataFrame.from_dict(metrics, orient='index', columns=['Value'])
+    metrics_df.reset_index(inplace=True)
+    metrics_df.columns = ['Metric', 'Value']
+    # Format values to 4 decimal places
+    metrics_df['Value'] = metrics_df['Value'].apply(lambda x: f"{x:.4f}")
+    # Convert DataFrame to HTML table with custom styling
+    metrics_html = metrics_df.to_html(index=False, classes='metrics-table')
+    st.markdown(metrics_html, unsafe_allow_html=True)
+else:
+    st.write("Model evaluation metrics are not available. Please train the model first.")
 
 # Prediction Section
 st.write("### Predict Customer Churn")
