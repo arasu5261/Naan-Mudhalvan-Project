@@ -6,11 +6,8 @@ from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
 import joblib
-import matplotlib.pyplot as plt
-import seaborn as sns
 
 st.title("Customer Churn Prediction")
-
 
 kaggle_api_token = {
     "username": st.secrets["kaggle"]["username"],
@@ -64,15 +61,6 @@ if not os.path.exists(model_path):
         })
 
 model = joblib.load(model_path)
-
-st.subheader("Feature Importance")
-importances = model.feature_importances_
-features = X.columns
-plt.figure(figsize=(10, 6))
-sns.barplot(x=importances, y=features)
-plt.title("Feature Importances - XGBoost")
-plt.tight_layout()
-st.pyplot(plt)
 
 st.subheader("Predict Customer Churn")
 gender = st.selectbox("Gender", ["Male", "Female"])
