@@ -4,8 +4,8 @@ import streamlit as st
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import train_test_split
-from xgboost import XGBClassifier  # Corrected from XGBClassifie
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
+from xgboost import XGBClassifier
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score, roc_curve  # Added roc_curve
 import joblib
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -62,6 +62,7 @@ if not os.path.exists(model_path):
         joblib.dump(model, model_path)
         # Evaluate model
         y_pred = model.predict(X_test)
+        y_pred_proba = model.predict_proba(X_test)[:, 1]  # Probabilities for ROC curve
         st.write("Model Evaluation:")
         st.write({
             'Accuracy': accuracy_score(y_test, y_pred),
@@ -80,6 +81,23 @@ features = X.columns
 plt.figure(figsize=(10, 6))
 sns.barplot(x=importances, y=features)
 plt.title("Feature Importances - XGBoost")
+plt.tight_layout()
+st.pyplot(plt)
+
+# ROC Curve plot
+st.subheader("ROC Curve")
+y_pred_proba = model.predict_proba(X_test)[:, 1]  # Get probabilities for the positive class
+fpr, tpr, _ = roc_curve(y_test, y_pred_proba)  # Compute ROC curve
+auc_score = roc_auc_score(y_test, y_pred_proba)  # Compute AUC
+
+plt.figure(figsize=(8, 6))
+plt.plot(fpr, tpr, label=f'ROC Curve (AUC = {auc_score:.2f})', color='blue')
+plt.plot([0, 1], [0, 1], 'k--', label='Random Guess')  # Diagonal line for random guessing
+plt.xlabel('False Positive Rate')
+plt.ylabel('True Positive Rate')
+plt.title('ROC Curve - XGBoost')
+plt.legend(loc='lower right')
+plt.grid(True)
 plt.tight_layout()
 st.pyplot(plt)
 
