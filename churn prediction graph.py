@@ -4,7 +4,7 @@ import streamlit as st
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import train_test_split
-from xgboost import XGBClassifie
+from xgboost import XGBClassifier  # Corrected from XGBClassifie
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
 import joblib
 import matplotlib.pyplot as plt
@@ -12,7 +12,7 @@ import seaborn as sns
 
 st.title("Customer Churn Prediction")
 
-
+# Set up Kaggle API credentials
 kaggle_api_token = {
     "username": st.secrets["kaggle"]["username"],
     "key": st.secrets["kaggle"]["key"]
@@ -23,9 +23,11 @@ with open(os.path.expanduser("~/.kaggle/kaggle.json"), "w") as f:
     json.dump(kaggle_api_token, f)
 os.chmod(os.path.expanduser("~/.kaggle/kaggle.json"), 0o600)
 
+# Download dataset
 with st.spinner("Downloading dataset..."):
     os.system("kaggle datasets download -d blastchar/telco-customer-churn --unzip -p ./data")
 
+# Load and preprocess dataset
 df = pd.read_csv('./data/WA_Fn-UseC_-Telco-Customer-Churn.csv')
 
 df['TotalCharges'] = pd.to_numeric(df['TotalCharges'], errors='coerce')
@@ -34,19 +36,24 @@ df.reset_index(drop=True, inplace=True)
 df.drop('customerID', axis=1, inplace=True)
 df['Churn'] = df['Churn'].map({'Yes': 1, 'No': 0})
 
+# Encode binary columns
 binary_cols = ['Partner', 'Dependents', 'PhoneService', 'PaperlessBilling']
 for col in binary_cols:
     df[col] = df[col].map({'Yes': 1, 'No': 0})
 
+# One-hot encode categorical variables
 df = pd.get_dummies(df, drop_first=True)
 
+# Scale numerical features
 scaler = MinMaxScaler()
 df[['tenure', 'MonthlyCharges', 'TotalCharges']] = scaler.fit_transform(df[['tenure', 'MonthlyCharges', 'TotalCharges']])
 
+# Split data
 X = df.drop('Churn', axis=1)
 y = df['Churn']
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42, stratify=y)
 
+# Train or load model
 model_path = "churn_model_xgb.pkl"
 if not os.path.exists(model_path):
     with st.spinner("Training model..."):
@@ -66,6 +73,7 @@ if not os.path.exists(model_path):
 
 model = joblib.load(model_path)
 
+# Feature importance plot
 st.subheader("Feature Importance")
 importances = model.feature_importances_
 features = X.columns
@@ -75,6 +83,7 @@ plt.title("Feature Importances - XGBoost")
 plt.tight_layout()
 st.pyplot(plt)
 
+# User input for prediction
 st.subheader("Predict Customer Churn")
 gender = st.selectbox("Gender", ["Male", "Female"])
 senior_citizen = st.selectbox("Senior Citizen", [0, 1])
@@ -96,6 +105,7 @@ payment_method = st.selectbox("Payment Method", ["Electronic check", "Mailed che
 monthly_charges = st.number_input("Monthly Charges", min_value=0.0, value=50.0)
 total_charges = st.number_input("Total Charges", min_value=0.0, value=600.0)
 
+# Prepare input data for prediction
 input_data = {
     'gender': gender,
     'SeniorCitizen': senior_citizen,
@@ -123,12 +133,16 @@ binary_cols = ['Partner', 'Dependents', 'PhoneService', 'PaperlessBilling']
 for col in binary_cols:
     input_df[col] = input_df[col].map({'Yes': 1, 'No': 0})
 
+# One-hot encode input data
 input_df = pd.get_dummies(input_df, drop_first=True)
 
+# Align input data with training data columns
 input_df = input_df.reindex(columns=X.columns, fill_value=0)
 
+# Scale numerical features
 input_df[['tenure', 'MonthlyCharges', 'TotalCharges']] = scaler.transform(input_df[['tenure', 'MonthlyCharges', 'TotalCharges']])
 
+# Make prediction
 if st.button("Predict"):
     prediction = model.predict(input_df)[0]
     probability = model.predict_proba(input_df)[0][1]
